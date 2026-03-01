@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字母键盘练习</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%);
+    color: #e0e0ff;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Back button */
+  #back-btn {
+    position: fixed;
+    top: 14px;
+    left: 24px;
+    background: transparent;
+    border: 1px solid #3a3a6a;
+    color: #6060aa;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 300;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  #back-btn:hover {
+    border-color: #00ffaa;
+    color: #00ffaa;
+    background: #00ffaa11;
+  }
+
+  /* 上部：下落区域 */
+  #game-container {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    margin-top: 60px;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 100px;
+    background: rgba(10,10,30,0.9);
+    border-bottom: 1px solid #2a2a5a;
+    z-index: 100;
+    font-size: 14px;
+    gap: 40px;
+  }
+  #hud .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  #hud .label {
+    color: #6060aa;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  #hud .value {
+    color: #a0c0ff;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  #current-mode {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffaa00;
+    font-size: 14px;
+    z-index: 100;
+    background: rgba(10,10,30,0.8);
+    padding: 5px 15px;
+    border-radius: 4px;
+    border: 1px solid #3a3a6a;
+  }
+
+  /* Falling letters */
+  .letter {
+    position: absolute;
+    font-size: 48px;
+    font-weight: bold;
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: 2px solid;
+    white-space: nowrap;
+    transition: all 0.2s;
+    pointer-events: none;
+    text-shadow: 0 0 20px currentColor;
+  }
+  .letter.matched {
+    color: #00ffaa !important;
+    border-color: #00ffaa !important;
+    transform: scale(1.3);
+  }
+
+  /* 下部：键盘区域 */
+  #keyboard-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 25px;
+    background: linear-gradient(180deg, rgba(10,10,30,0) 0%, rgba(10,10,30,0.95) 20%, rgba(10,10,30,1) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+  }
+
+  #keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 25px 40px;
+    background: rgba(20,20,50,0.9);
+    border-radius: 15px;
+    border: 1px solid #2a2a6a;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+  }
+
+  .kb-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .key {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(180deg, #2a2a5a 0%, #1a1a3a 100%);
+    border: 2px solid #4a4a8a;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: bold;
+    color: #a0a0dd;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    box-shadow:
+      0 5px 0 #1a1a3a,
+      0 6px 12px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  .key:hover {
+    transform: translateY(2px);
+    box-shadow:
+      0 3px 0 #1a1a3a,
+      0 4px 8px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  /* 按键按下效果 */
+  .key.active {
+    background: linear-gradient(180deg, #00ffaa 0%, #00cc88 100%);
+    border-color: #00ffaa;
+    color: #000;
+    transform: translateY(5px);
+    box-shadow:
+      0 0 25px #00ffaa,
+      0 0 50px #00ffaa44,
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  /* 提示键 - 闪亮效果 */
+  .key.hint {
+    background: linear-gradient(180deg, #ffaa00 0%, #cc8800 100%);
+    border-color: #ffaa00;
+    color: #000;
+    animation: key-glow 0.8s ease-in-out infinite;
+    box-shadow:
+      0 5px 0 #aa6600,
+      0 0 25px #ffaa00,
+      0 0 50px #ffaa0044;
+  }
+
+  /* 手指区域高亮 - 左食指 */
+  .key.finger-left-index {
+    background: linear-gradient(180deg, #ff6688 0%, #cc3355 100%);
+    border-color: #ff6688;
+    color: #fff;
+    box-shadow:
+      0 5px 0 #992244,
+      0 0 20px #ff668844;
+  }
+
+  /* 手指区域高亮 - 右食指 */
+  .key.finger-right-index {
+    background: linear-gradient(180deg, #44ddff 0%, #22aacc 100%);
+    border-color: #44ddff;
+    color: #000;
+    box-shadow:
+      0 5px 0 #1188aa,
+      0 0 20px #44ddff44;
+  }
+
+  /* 手指区域高亮 - 左中指、无名指、小拇指 */
+  .key.finger-left-other {
+    background: linear-gradient(180deg, #aa88ff 0%, #8855cc 100%);
+    border-color: #aa88ff;
+    color: #fff;
+    box-shadow:
+      0 5px 0 #664499,
+      0 0 20px #aa88ff44;
+  }
+
+  /* 手指区域高亮 - 右中指、无名指、小拇指 */
+  .key.finger-right-other {
+    background: linear-gradient(180deg, #88ffcc 0%, #55cc99 100%);
+    border-color: #88ffcc;
+    color: #000;
+    box-shadow:
+      0 5px 0 #339977,
+      0 0 20px #88ffcc44;
+  }
+
+  @keyframes key-glow {
+    0%, 100% {
+      box-shadow:
+        0 5px 0 #aa6600,
+        0 0 25px #ffaa00,
+        0 0 50px #ffaa0044;
+    }
+    50% {
+      box-shadow:
+        0 5px 0 #aa6600,
+        0 0 40px #ffaa00,
+        0 0 70px #ffaa0088,
+        0 0 100px #ffaa0022;
+    }
+  }
+
+  /* Screens */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,5,20,0.98);
+    z-index: 200;
+    gap: 20px;
+  }
+
+  .screen h1 {
+    font-size: 56px;
+    color: #a0c0ff;
+    letter-spacing: 4px;
+    text-shadow: 0 0 30px #a0c0ff44;
+  }
+
+  .screen h2 {
+    font-size: 36px;
+    color: #a0c0ff;
+  }
+
+  .screen p {
+    color: #8080aa;
+    font-size: 16px;
+    text-align: center;
+    line-height: 1.8;
+    max-width: 600px;
+  }
+
+  .btn {
+    padding: 15px 45px;
+    background: transparent;
+    border: 2px solid #00ffaa;
+    color: #00ffaa;
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 6px;
+    letter-spacing: 3px;
+    transition: all 0.2s;
+  }
+
+  .btn:hover {
+    background: #00ffaa22;
+    box-shadow: 0 0 30px #00ffaa55;
+  }
+
+  /* Mode selection buttons */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .mode-btn {
+    padding: 15px 25px;
+    background: transparent;
+    border: 2px solid;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 6px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    min-width: 180px;
+  }
+
+  .mode-btn[data-mode="left-index"] { 
+    border-color: #ff6688; 
+    color: #ff6688; 
+  }
+  .mode-btn[data-mode="left-index"]:hover, .mode-btn[data-mode="left-index"].selected {
+    background: #ff668822;
+    box-shadow: 0 0 20px #ff668855;
+  }
+
+  .mode-btn[data-mode="right-index"] { 
+    border-color: #44ddff; 
+    color: #44ddff; 
+  }
+  .mode-btn[data-mode="right-index"]:hover, .mode-btn[data-mode="right-index"].selected {
+    background: #44ddff22;
+    box-shadow: 0 0 20px #44ddff55;
+  }
+
+  .mode-btn[data-mode="left-other"] { 
+    border-color: #aa88ff; 
+    color: #aa88ff; 
+  }
+  .mode-btn[data-mode="left-other"]:hover, .mode-btn[data-mode="left-other"].selected {
+    background: #aa88ff22;
+    box-shadow: 0 0 20px #aa88ff55;
+  }
+
+  .mode-btn[data-mode="right-other"] { 
+    border-color: #88ffcc; 
+    color: #88ffcc; 
+  }
+  .mode-btn[data-mode="right-other"]:hover, .mode-btn[data-mode="right-other"].selected {
+    background: #88ffcc22;
+    box-shadow: 0 0 20px #88ffcc55;
+  }
+
+  .mode-btn[data-mode="mixed"] { 
+    border-color: #ffaa00; 
+    color: #ffaa00; 
+    grid-column: span 2;
+  }
+  .mode-btn[data-mode="mixed"]:hover, .mode-btn[data-mode="mixed"].selected {
+    background: #ffaa0022;
+    box-shadow: 0 0 20px #ffaa0055;
+  }
+
+  .mode-btn.selected {
+    box-shadow: 0 0 15px currentColor;
+  }
+
+  .mode-desc {
+    color: #6060aa;
+    font-size: 13px;
+    margin-top: 5px;
+  }
+
+  kbd {
+    background: #2a2a4a;
+    border: 1px solid #4a4a7a;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    box-shadow: 0 2px 0 #1a1a3a;
+  }
+
+  #final-score {
+    font-size: 72px;
+    color: #00ffaa;
+    font-weight: bold;
+    text-shadow: 0 0 30px #00ffaa44;
+  }
+
+  #final-stats {
+    color: #8080aa;
+    font-size: 16px;
+    text-align: center;
+    line-height: 2;
+  }
+
+  /* Particles */
+  .particle {
+    position: absolute;
+    pointer-events: none;
+    font-size: 16px;
+    font-weight: bold;
+    animation: float-up 0.8s ease-out forwards;
+    z-index: 150;
+  }
+
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+  }
+
+  /* Combo */
+  #combo-display {
+    position: fixed;
+    top: 80px;
+    right: 30px;
+    font-size: 32px;
+    font-weight: bold;
+    color: #ffaa00;
+    text-shadow: 0 0 15px #ffaa00;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 100;
+  }
+
+  /* Progress bar */
+  #level-bar {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #1a1a3a;
+    z-index: 99;
+  }
+
+  #level-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ffaa, #0088ff);
+    transition: width 0.3s;
+    box-shadow: 0 0 8px #00ffaa;
+  }
+
+  /* Speed control */
+  #speed-control {
+    position: fixed;
+    top: 14px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 300;
+    background: rgba(10,10,30,0.8);
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #2a2a5a;
+  }
+
+  #speed-control span {
+    color: #6060aa;
+    font-size: 12px;
+  }
+
+  .speed-btn {
+    background: transparent;
+    border: 1px solid #3a3a6a;
+    color: #8080cc;
+    padding: 5px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .speed-btn:hover {
+    border-color: #00ffaa;
+    color: #00ffaa;
+  }
+
+  .speed-btn.active {
+    background: #00ffaa22;
+    border-color: #00ffaa;
+    color: #00ffaa;
+  }
+</style>
+</head>
+<body>
+
+<!-- Back Button -->
+<a href="typing-game.html" id="back-btn">← 返回主菜单</a>
+
+<!-- Speed Control -->
+<div id="speed-control">
+  <span>速度:</span>
+  <button class="speed-btn active" data-speed="slow">慢速</button>
+  <button class="speed-btn" data-speed="normal">正常</button>
+  <button class="speed-btn" data-speed="fast">快速</button>
+</div>
+
+<!-- Start Screen -->
+<div class="screen" id="start-screen">
+  <h1>🎹 字母练习</h1>
+  <p>选择练习模式，字母从屏幕上方落下，在它们到达键盘前按下对应的按键！<br>
+  底部键盘会<strong style="color:#ffaa00">闪橙色光</strong>提示最底部的字母，
+  对应手指区域会显示不同颜色提示。<br>
+  <small style="color:#6060aa;">💡 提示：按 <kbd>Esc</kbd> 可随时返回此页面</small></p>
+  
+  <div class="mode-grid">
+    <button class="mode-btn selected" data-mode="left-index">
+      <strong>左食指</strong>
+      <div class="mode-desc">R T F G V B</div>
+    </button>
+    <button class="mode-btn" data-mode="right-index">
+      <strong>右食指</strong>
+      <div class="mode-desc">Y U H J N M</div>
+    </button>
+    <button class="mode-btn" data-mode="left-other">
+      <strong>左中/无名/小指</strong>
+      <div class="mode-desc">Q W E A S D Z X C</div>
+    </button>
+    <button class="mode-btn" data-mode="right-other">
+      <strong>右中/无名/小指</strong>
+      <div class="mode-desc">I O P K L</div>
+    </button>
+    <button class="mode-btn" data-mode="mixed">
+      <strong>🎲 混合练习</strong>
+      <div class="mode-desc">全部26个字母随机出现</div>
+    </button>
+  </div>
+  
+  <button class="btn" id="start-btn">开始练习</button>
+</div>
+
+<!-- Game Over Screen -->
+<div class="screen" id="gameover-screen" style="display:none">
+  <h2>练习结束</h2>
+  <div id="final-score">0</div>
+  <div id="final-stats"></div>
+  <button class="btn" id="restart-btn">再练一次</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="stat">
+    <span class="label">分数</span>
+    <span class="value" id="score-val">0</span>
+  </div>
+  <div class="stat">
+    <span class="label">连击</span>
+    <span class="value" id="combo-val">0</span>
+  </div>
+  <div class="stat">
+    <span class="label">准确率</span>
+    <span class="value" id="acc-val">100%</span>
+  </div>
+</div>
+
+<div id="current-mode">左食指练习</div>
+
+<div id="level-bar"><div id="level-fill" style="width:0%"></div></div>
+<div id="combo-display"></div>
+
+<!-- 上部：下落字母区域 -->
+<div id="game-container"></div>
+
+<!-- 下部：键盘区域 -->
+<div id="keyboard-container">
+  <div id="keyboard">
+    <div class="kb-row" id="kb-row-1"></div>
+    <div class="kb-row" id="kb-row-2"></div>
+    <div class="kb-row" id="kb-row-3"></div>
+  </div>
+</div>
+
+<script>
+// ─── Finger Practice Modes ────────────────────────────────────────────────────
+const FINGER_MODES = {
+  'left-index': {
+    name: '左食指练习',
+    letters: ['r', 't', 'f', 'g', 'v', 'b'],
+    fingerClass: 'finger-left-index'
+  },
+  'right-index': {
+    name: '右食指练习',
+    letters: ['y', 'u', 'h', 'j', 'n', 'm'],
+    fingerClass: 'finger-right-index'
+  },
+  'left-other': {
+    name: '左中/无名/小指练习',
+    letters: ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'],
+    fingerClass: 'finger-left-other'
+  },
+  'right-other': {
+    name: '右中/无名/小指练习',
+    letters: ['i', 'o', 'p', 'k', 'l'],
+    fingerClass: 'finger-right-other'
+  },
+  'mixed': {
+    name: '混合练习',
+    letters: ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'],
+    fingerClass: null
+  }
+};
+
+// ─── Letters ──────────────────────────────────────────────────────────────────
+const ALL_LETTERS = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
+
+const COLORS = [
+  ['#ff6688','#ff6688'],['#ffaa44','#ffaa44'],['#44ddff','#44ddff'],
+  ['#aa88ff','#aa88ff'],['#ff88cc','#ff88cc'],['#88ffcc','#88ffcc'],
+  ['#ffdd44','#ffdd44'],['#44ffaa','#44ffaa'],['#ff44aa','#ff44aa']
+];
+
+// ─── Keyboard Layout ──────────────────────────────────────────────────────────
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['Z','X','C','V','B','N','M']
+];
+
+// 字母到手指模式的映射
+const LETTER_TO_FINGER = {};
+Object.keys(FINGER_MODES).forEach(mode => {
+  if (mode !== 'mixed') {
+    FINGER_MODES[mode].letters.forEach(letter => {
+      LETTER_TO_FINGER[letter] = mode;
+    });
+  }
+});
+
+function buildKeyboard() {
+  KB_ROWS.forEach((row, i) => {
+    const el = document.getElementById(`kb-row-${i+1}`);
+    row.forEach(k => {
+      const div = document.createElement('div');
+      div.className = 'key';
+      div.textContent = k;
+      div.id = `key-${k}`;
+      el.appendChild(div);
+    });
+  });
+}
+
+function flashKey(char) {
+  const k = char.toUpperCase();
+  const el = document.getElementById(`key-${k}`);
+  if (!el) return;
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 150);
+}
+
+// 提示键高亮
+function highlightHintKey(char) {
+  document.querySelectorAll('.key.hint').forEach(k => k.classList.remove('hint'));
+  if (!char) return;
+  const k = char.toUpperCase();
+  const el = document.getElementById(`key-${k}`);
+  if (el) {
+    el.classList.add('hint');
+  }
+}
+
+// 高亮手指区域
+function highlightFingerArea(mode) {
+  // 清除所有手指高亮
+  document.querySelectorAll('.key').forEach(key => {
+    key.classList.remove('finger-left-index', 'finger-right-index', 'finger-left-other', 'finger-right-other');
+  });
+
+  if (!mode || mode === 'mixed') return;
+
+  const fingerClass = FINGER_MODES[mode].fingerClass;
+  if (!fingerClass) return;
+
+  // 为该模式下的所有字母添加高亮
+  FINGER_MODES[mode].letters.forEach(letter => {
+    const el = document.getElementById(`key-${letter.toUpperCase()}`);
+    if (el) {
+      el.classList.add(fingerClass);
+    }
+  });
+}
+
+// ─── Game State ───────────────────────────────────────────────────────────────
+let state = {
+  running: false,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  letters: [],
+  totalTyped: 0,
+  correctHits: 0,
+  startTime: 0,
+  spawnTimer: null,
+  speed: 'slow',
+  levelProgress: 0,
+  lettersForLevel: 20,
+  currentMode: 'left-index'
+};
+
+// ─── Speed Config ─────────────────────────────────────────────────────────────
+function getSpeedConfig() {
+  const configs = {
+    slow:   { spawnInterval: 2000, fallDuration: 10000 },
+    normal: { spawnInterval: 1500, fallDuration: 7500  },
+    fast:   { spawnInterval: 1000, fallDuration: 5000  },
+  };
+  // Speed up per level
+  const lvl = Math.floor(state.score / 500);
+  const cfg = {...configs[state.speed]};
+  cfg.spawnInterval = Math.max(600, cfg.spawnInterval - lvl * 100);
+  cfg.fallDuration  = Math.max(2500, cfg.fallDuration - lvl * 250);
+  return cfg;
+}
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const container = document.getElementById('game-container');
+const scoreVal = document.getElementById('score-val');
+const comboVal = document.getElementById('combo-val');
+const accVal = document.getElementById('acc-val');
+const comboDisplay = document.getElementById('combo-display');
+const levelFill = document.getElementById('level-fill');
+const currentModeDisplay = document.getElementById('current-mode');
+
+// ─── Get Letters for Current Mode ──────────────────────────────────────────────
+function getCurrentLetters() {
+  return FINGER_MODES[state.currentMode].letters;
+}
+
+// ─── Spawn Letter ─────────────────────────────────────────────────────────────
+function spawnLetter() {
+  if (!state.running) return;
+  const cfg = getSpeedConfig();
+  const letterPool = getCurrentLetters();
+  const text = letterPool[Math.floor(Math.random() * letterPool.length)];
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+  const el = document.createElement('div');
+  el.className = 'letter';
+  el.textContent = text.toUpperCase();
+  el.style.color = color[0];
+  el.style.borderColor = color[0] + '66';
+  el.style.boxShadow = `0 0 20px ${color[0]}44`;
+
+  const gameW = window.innerWidth;
+  const x = 50 + Math.random() * (gameW - 200);
+  el.style.left = x + 'px';
+  el.style.top = '70px';
+
+  container.appendChild(el);
+
+  const letterObj = { el, text: text.toLowerCase(), x, matched: false, y: 70 };
+  state.letters.push(letterObj);
+
+  // Animate fall
+  const startY = 70;
+  const keyboardTop = window.innerHeight - 320;
+  const startTime = performance.now();
+
+  function fall(now) {
+    if (!state.running || letterObj.matched) return;
+    const elapsed = now - startTime;
+    const progress = elapsed / cfg.fallDuration;
+    if (progress >= 1) {
+      letterMissed(letterObj);
+      return;
+    }
+    const y = startY + (keyboardTop - startY - 100) * progress;
+    letterObj.y = y;
+    el.style.top = y + 'px';
+    updateHintKey();
+    requestAnimationFrame(fall);
+  }
+  requestAnimationFrame(fall);
+}
+
+// 更新提示键 - 找到最底部的字母并高亮
+function updateHintKey() {
+  if (!state.running || state.letters.length === 0) {
+    highlightHintKey(null);
+    return;
+  }
+
+  let bottomLetter = null;
+  let maxY = -1;
+
+  for (const l of state.letters) {
+    if (!l.matched && l.y > maxY) {
+      maxY = l.y;
+      bottomLetter = l;
+    }
+  }
+
+  if (bottomLetter) {
+    highlightHintKey(bottomLetter.text);
+  } else {
+    highlightHintKey(null);
+  }
+}
+
+function letterMissed(letterObj) {
+  if (letterObj.matched) return;
+  letterObj.matched = true;
+  shakeLetter(letterObj.el);
+  setTimeout(() => letterObj.el.remove(), 400);
+  state.letters = state.letters.filter(l => l !== letterObj);
+  state.combo = 0;
+  comboVal.textContent = '0';
+  updateComboDisplay();
+  updateHintKey();
+}
+
+function shakeLetter(el) {
+  el.style.color = '#ff4466';
+  el.style.borderColor = '#ff4466';
+  let s = 0;
+  const shake = setInterval(() => {
+    el.style.transform = `translateX(${(s%2===0?-1:1)*8}px)`;
+    s++;
+    if (s > 6) {
+      clearInterval(shake);
+      el.style.transform = '';
+    }
+  }, 40);
+}
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playSuccessSound() {
+  if (!audioCtx) initAudio();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  // 悦耳的提示音
+  osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+  osc.frequency.exponentialRampToValueAtTime(1046.5, audioCtx.currentTime + 0.1); // C6
+
+  gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+  osc.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + 0.15);
+}
+
+function playErrorSound() {
+  if (!audioCtx) initAudio();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+
+  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+  osc.start(audioCtx.currentTime);
+  osc.stop(audioCtx.currentTime + 0.15);
+}
+
+// ─── Speech Synthesis ─────────────────────────────────────────────────────────
+function speakLetter(letter) {
+  if (!window.speechSynthesis) return;
+  
+  // 取消之前的语音
+  window.speechSynthesis.cancel();
+  
+  const utter = new SpeechSynthesisUtterance(letter);
+  utter.lang = 'en-US';
+  utter.rate = 1.0;
+  utter.pitch = 1.0;
+  utter.volume = 1.0;
+  
+  // 尝试使用英语语音
+  const voices = window.speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en'));
+  if (enVoice) utter.voice = enVoice;
+  
+  window.speechSynthesis.speak(utter);
+}
+
+// 预加载语音
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+
+// ─── Input Handling ───────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    // Esc返回主页
+    if (state.running) {
+      endGame();
+    }
+    document.getElementById('start-screen').style.display = 'flex';
+    document.getElementById('gameover-screen').style.display = 'none';
+    return;
+  }
+
+  if (!state.running) return;
+  if (e.key.length !== 1) return;
+
+  const ch = e.key.toLowerCase();
+  if (!/[a-z]/.test(ch)) return;
+
+  flashKey(ch);
+  state.totalTyped++;
+  checkMatch(ch);
+});
+
+// 键盘点击支持
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.key').forEach(key => {
+    key.addEventListener('click', () => {
+      if (!state.running) return;
+      const ch = key.textContent.toLowerCase();
+      flashKey(ch);
+      state.totalTyped++;
+      checkMatch(ch);
+    });
+  });
+});
+
+function checkMatch(char) {
+  // 找到最底部的匹配字母
+  let targetLetter = null;
+  let maxY = -1;
+
+  for (const l of state.letters) {
+    if (!l.matched && l.y > maxY && l.text === char) {
+      maxY = l.y;
+      targetLetter = l;
+    }
+  }
+
+  if (targetLetter) {
+    letterCompleted(targetLetter);
+  }
+}
+
+function letterCompleted(letterObj) {
+  letterObj.matched = true;
+  state.correctHits++;
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+  // 播放成功音效
+  playSuccessSound();
+
+  // 播放字母读音
+  speakLetter(letterObj.text);
+
+  // Score
+  const baseScore = 50;
+  const comboBonus = Math.floor(state.combo / 5) * 10;
+  const points = baseScore + comboBonus;
+  state.score += points;
+
+  // Particle
+  spawnParticle(letterObj.el, `+${points}`, '#00ffaa');
+
+  state.letters = state.letters.filter(l => l !== letterObj);
+  setTimeout(() => {
+    letterObj.el.style.transition = 'all 0.3s';
+    letterObj.el.style.transform = 'scale(1.5)';
+    letterObj.el.style.opacity = '0';
+    setTimeout(() => letterObj.el.remove(), 300);
+  }, 100);
+
+  updateHUD();
+  updateComboDisplay();
+  updateHintKey();
+}
+
+function spawnParticle(refEl, text, color) {
+  const rect = refEl.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = text;
+  p.style.color = color;
+  p.style.left = (rect.left + rect.width/2) + 'px';
+  p.style.top = rect.top + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 800);
+}
+
+// ─── Combo Display ────────────────────────────────────────────────────────────
+let comboTimeout;
+function updateComboDisplay() {
+  comboVal.textContent = state.combo;
+  if (state.combo >= 5) {
+    comboDisplay.textContent = `${state.combo}x 连击!`;
+    comboDisplay.style.opacity = '1';
+    clearTimeout(comboTimeout);
+    comboTimeout = setTimeout(() => comboDisplay.style.opacity = '0', 1500);
+  } else {
+    comboDisplay.style.opacity = '0';
+  }
+}
+
+// ─── HUD Update ───────────────────────────────────────────────────────────────
+function updateHUD() {
+  scoreVal.textContent = state.score;
+
+  const acc = state.totalTyped > 0
+    ? Math.round((state.correctHits / state.totalTyped) * 100)
+    : 100;
+  accVal.textContent = acc + '%';
+
+  // Level progress
+  state.levelProgress++;
+  const needed = state.lettersForLevel;
+  const pct = (state.levelProgress % needed / needed) * 100;
+  levelFill.style.width = pct + '%';
+}
+
+setInterval(() => { if (state.running) updateHUD(); }, 1000);
+
+// ─── Spawner ──────────────────────────────────────────────────────────────────
+function restartSpawner() {
+  clearInterval(state.spawnTimer);
+  const cfg = getSpeedConfig();
+  spawnLetter();
+  state.spawnTimer = setInterval(spawnLetter, cfg.spawnInterval);
+}
+
+// ─── Game Flow ────────────────────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+
+  Object.assign(state, {
+    running: true,
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    letters: [],
+    totalTyped: 0,
+    correctHits: 0,
+    startTime: Date.now(),
+    levelProgress: 0,
+  });
+
+  container.innerHTML = '';
+  comboVal.textContent = '0';
+  updateHUD();
+  levelFill.style.width = '0%';
+  highlightHintKey(null);
+  highlightFingerArea(state.currentMode);
+  currentModeDisplay.textContent = FINGER_MODES[state.currentMode].name;
+  restartSpawner();
+}
+
+function endGame() {
+  state.running = false;
+  clearInterval(state.spawnTimer);
+
+  state.letters.forEach(l => l.el.remove());
+  state.letters = [];
+  highlightHintKey(null);
+
+  const acc = state.totalTyped > 0
+    ? Math.round((state.correctHits / state.totalTyped) * 100)
+    : 100;
+
+  document.getElementById('final-score').textContent = state.score;
+  document.getElementById('final-stats').innerHTML =
+    `练习模式: ${FINGER_MODES[state.currentMode].name}<br>` +
+    `准确率: ${acc}% &nbsp;|&nbsp; 最高连击: ${state.maxCombo}x<br>` +
+    `正确敲击: ${state.correctHits} 次 &nbsp;|&nbsp; 总尝试: ${state.totalTyped} 次`;
+
+  document.getElementById('gameover-screen').style.display = 'flex';
+}
+
+// ─── UI Events ────────────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Mode selection
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.currentMode = btn.dataset.mode;
+  });
+});
+
+// Speed control
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.speed = btn.dataset.speed;
+    if (state.running) {
+      restartSpawner();
+    }
+  });
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+buildKeyboard();
+</script>
+</body>
+</html>

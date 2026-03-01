@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>键盘字母练习游戏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a1a;
+    color: #e0e0ff;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 上部：下落区域 */
+  #game-container {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: rgba(10,10,30,0.85);
+    border-bottom: 1px solid #2a2a5a;
+    z-index: 100;
+    font-size: 14px;
+  }
+  #hud .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #hud .label { color: #6060aa; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  #hud .value { color: #a0c0ff; font-size: 20px; font-weight: bold; }
+  #lives-display { display: flex; gap: 6px; }
+  .heart { color: #ff4466; font-size: 18px; transition: transform 0.2s; }
+  .heart.lost { color: #333; }
+
+  /* Falling letters */
+  .word {
+    position: absolute;
+    font-size: 36px;
+    font-weight: bold;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 2px solid;
+    white-space: nowrap;
+    transition: all 0.2s;
+    pointer-events: none;
+    text-shadow: 0 0 15px currentColor;
+  }
+  .word.matched { color: #00ffaa !important; border-color: #00ffaa !important; transform: scale(1.2); }
+
+  /* 下部：键盘区域 */
+  #keyboard-container {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(10,10,30,0) 0%, rgba(10,10,30,0.95) 20%, rgba(10,10,30,1) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+  }
+
+  #keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px 30px;
+    background: rgba(20,20,50,0.8);
+    border-radius: 12px;
+    border: 1px solid #2a2a6a;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+
+  .kb-row { display: flex; gap: 8px; justify-content: center; }
+
+  .key {
+    width: 50px; height: 50px;
+    background: linear-gradient(180deg, #2a2a5a 0%, #1a1a3a 100%);
+    border: 2px solid #4a4a8a;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #a0a0dd;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    box-shadow: 
+      0 4px 0 #1a1a3a,
+      0 5px 10px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  .key:hover {
+    transform: translateY(2px);
+    box-shadow: 
+      0 2px 0 #1a1a3a,
+      0 3px 6px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  /* 按键按下效果 */
+  .key.active {
+    background: linear-gradient(180deg, #00ffaa 0%, #00cc88 100%);
+    border-color: #00ffaa;
+    color: #000;
+    transform: translateY(4px);
+    box-shadow: 
+      0 0 20px #00ffaa,
+      0 0 40px #00ffaa44,
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  /* 提示键 - 闪亮效果 */
+  .key.hint {
+    background: linear-gradient(180deg, #ffaa00 0%, #cc8800 100%);
+    border-color: #ffaa00;
+    color: #000;
+    animation: key-glow 1s ease-in-out infinite;
+    box-shadow: 
+      0 4px 0 #aa6600,
+      0 0 20px #ffaa00,
+      0 0 40px #ffaa0044;
+  }
+
+  @keyframes key-glow {
+    0%, 100% { 
+      box-shadow: 
+        0 4px 0 #aa6600,
+        0 0 20px #ffaa00,
+        0 0 40px #ffaa0044;
+    }
+    50% { 
+      box-shadow: 
+        0 4px 0 #aa6600,
+        0 0 30px #ffaa00,
+        0 0 60px #ffaa0088,
+        0 0 80px #ffaa0022;
+    }
+  }
+
+  /* Screens */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,5,20,0.95);
+    z-index: 200;
+    gap: 20px;
+  }
+  .screen h1 { font-size: 48px; color: #a0c0ff; letter-spacing: 4px; }
+  .screen h2 { font-size: 32px; color: #a0c0ff; }
+  .screen p { color: #8080aa; font-size: 16px; text-align: center; line-height: 1.8; }
+  .btn {
+    padding: 12px 36px;
+    background: transparent;
+    border: 2px solid #00ffaa;
+    color: #00ffaa;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: #00ffaa22; box-shadow: 0 0 20px #00ffaa44; }
+
+  .link-btn {
+    padding: 10px 30px;
+    background: transparent;
+    border: 1px solid #44aaff;
+    color: #44aaff;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .link-btn:hover { background: #44aaff22; box-shadow: 0 0 15px #44aaff44; }
+
+  .difficulty-btns { display: flex; gap: 12px; }
+  .diff-btn {
+    padding: 10px 24px;
+    background: transparent;
+    border: 1px solid;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .diff-btn[data-d="easy"] { border-color: #44ff88; color: #44ff88; }
+  .diff-btn[data-d="normal"] { border-color: #ffaa00; color: #ffaa00; }
+  .diff-btn[data-d="hard"] { border-color: #ff4466; color: #ff4466; }
+  .diff-btn[data-d="letters"] { border-color: #44aaff; color: #44aaff; }
+  .diff-btn.selected, .diff-btn:hover { filter: brightness(1.5); }
+  .diff-btn.selected { box-shadow: 0 0 12px currentColor; }
+
+  #final-score { font-size: 64px; color: #00ffaa; font-weight: bold; }
+  #final-stats { color: #8080aa; font-size: 14px; text-align: center; line-height: 2; }
+
+  /* Particles */
+  .particle {
+    position: absolute;
+    pointer-events: none;
+    font-size: 14px;
+    font-weight: bold;
+    animation: float-up 0.8s ease-out forwards;
+    z-index: 150;
+  }
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+  }
+
+  /* Combo */
+  #combo-display {
+    position: fixed;
+    top: 70px; right: 24px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffaa00;
+    text-shadow: 0 0 12px #ffaa00;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 100;
+  }
+
+  /* Progress bar */
+  #level-bar {
+    position: fixed;
+    top: 56px; left: 0; right: 0;
+    height: 3px;
+    background: #1a1a3a;
+    z-index: 99;
+  }
+  #level-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ffaa, #0088ff);
+    transition: width 0.3s;
+    box-shadow: 0 0 6px #00ffaa;
+  }
+
+  /* Music toggle */
+  #music-btn {
+    position: fixed;
+    top: 14px; right: 24px;
+    background: transparent;
+    border: 1px solid #3a3a6a;
+    color: #6060aa;
+    font-size: 18px;
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 300;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #music-btn:hover { border-color: #00ffaa; color: #00ffaa; }
+  #music-btn.on { border-color: #00ffaa88; color: #00ffaa; }
+</style>
+</head>
+<body>
+
+<!-- Start Screen -->
+<div class="screen" id="start-screen">
+  <h1>⌨ KEYBOARD HERO</h1>
+  <p>字母从天而降，在它们落地前按下键盘对应的键！<br>看准底部键盘的提示，快速敲击正确的字母键。</p>
+  <div class="difficulty-btns">
+    <button class="diff-btn selected" data-d="easy">简单</button>
+    <button class="diff-btn" data-d="normal">普通</button>
+    <button class="diff-btn" data-d="hard">困难</button>
+  </div>
+  <button class="btn" id="start-btn">开始游戏</button>
+  <a href="letter-practice.html" class="link-btn">🎹 字符练习模式</a>
+</div>
+
+<!-- Game Over Screen -->
+<div class="screen" id="gameover-screen" style="display:none">
+  <h2>GAME OVER</h2>
+  <div id="final-score">0</div>
+  <div id="final-stats"></div>
+  <button class="btn" id="restart-btn">再来一局</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="stat">
+    <span class="label">分数</span>
+    <span class="value" id="score-val">0</span>
+  </div>
+  <div class="stat">
+    <span class="label">关卡</span>
+    <span class="value" id="level-val">1</span>
+  </div>
+  <div class="stat">
+    <span class="label">准确率</span>
+    <span class="value" id="acc-val">100%</span>
+  </div>
+  <div class="stat">
+    <span class="label">WPM</span>
+    <span class="value" id="wpm-val">0</span>
+  </div>
+  <div class="stat">
+    <span class="label">生命</span>
+    <div id="lives-display">
+      <span class="heart" id="h1">♥</span>
+      <span class="heart" id="h2">♥</span>
+      <span class="heart" id="h3">♥</span>
+    </div>
+  </div>
+</div>
+
+<button id="music-btn" title="背景音乐">♪</button>
+<div id="level-bar"><div id="level-fill" style="width:0%"></div></div>
+<div id="combo-display"></div>
+
+<!-- 上部：下落字母区域 -->
+<div id="game-container"></div>
+
+<!-- 下部：键盘区域 -->
+<div id="keyboard-container">
+  <div id="keyboard">
+    <div class="kb-row" id="kb-row-1"></div>
+    <div class="kb-row" id="kb-row-2"></div>
+    <div class="kb-row" id="kb-row-3"></div>
+  </div>
+</div>
+
+<script>
+// ─── Word Lists ───────────────────────────────────────────────────────────────
+const WORDS = {
+  easy: ['cat','dog','run','fly','sun','sky','red','big','hot','cup',
+         'map','key','box','fan','hat','pen','car','bus','arm','leg'],
+  normal: ['apple','brave','cloud','dance','eagle','flame','grace','happy',
+           'index','juice','knife','lemon','magic','night','ocean','piano',
+           'queen','river','storm','tiger','ultra','vivid','water','xenon','yacht','zebra'],
+  hard: ['abstract','balance','cascade','dynamic','encrypt','fractal',
+         'gradient','harmony','infinite','junction','keyboard','language',
+         'momentum','network','optimize','parallel','quantum','recursive',
+         'spectrum','terminal','universe','velocity','workflow','xylophone'],
+  letters: ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+};
+
+const COLORS = [
+  ['#ff6688','#ff6688'],['#ffaa44','#ffaa44'],['#44ddff','#44ddff'],
+  ['#aa88ff','#aa88ff'],['#ff88cc','#ff88cc'],['#88ffcc','#88ffcc']
+];
+
+// ─── Keyboard Layout ──────────────────────────────────────────────────────────
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['Z','X','C','V','B','N','M']
+];
+
+function buildKeyboard() {
+  KB_ROWS.forEach((row, i) => {
+    const el = document.getElementById(`kb-row-${i+1}`);
+    row.forEach(k => {
+      const div = document.createElement('div');
+      div.className = 'key';
+      div.textContent = k;
+      div.id = `key-${k}`;
+      el.appendChild(div);
+    });
+  });
+}
+
+function flashKey(char) {
+  const k = char.toUpperCase();
+  const el = document.getElementById(`key-${k}`);
+  if (!el) return;
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 150);
+}
+
+// 提示键高亮
+function highlightHintKey(char) {
+  // 清除所有提示
+  document.querySelectorAll('.key.hint').forEach(k => k.classList.remove('hint'));
+  
+  if (!char) return;
+  
+  const k = char.toUpperCase();
+  const el = document.getElementById(`key-${k}`);
+  if (el) {
+    el.classList.add('hint');
+  }
+}
+
+// ─── Game State ───────────────────────────────────────────────────────────────
+let state = {
+  running: false,
+  score: 0,
+  lives: 3,
+  level: 1,
+  combo: 0,
+  maxCombo: 0,
+  words: [],
+  totalTyped: 0,
+  correctChars: 0,
+  wordsCompleted: 0,
+  wordsDropped: 0,
+  startTime: 0,
+  spawnTimer: null,
+  fallTimer: null,
+  difficulty: 'easy',
+  levelProgress: 0,
+  wordsForLevel: 10,
+};
+
+let difficulty = 'easy';
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const container = document.getElementById('game-container');
+const scoreVal = document.getElementById('score-val');
+const levelVal = document.getElementById('level-val');
+const accVal = document.getElementById('acc-val');
+const wpmVal = document.getElementById('wpm-val');
+const comboDisplay = document.getElementById('combo-display');
+const levelFill = document.getElementById('level-fill');
+
+// ─── Difficulty Config ────────────────────────────────────────────────────────
+function getDiffConfig() {
+  const base = {
+    easy:   { spawnInterval: 2500, fallDuration: 10000, wordList: 'easy',   wordsForLevel: 8  },
+    normal: { spawnInterval: 1800, fallDuration: 8000,  wordList: 'normal', wordsForLevel: 10 },
+    hard:   { spawnInterval: 1200, fallDuration: 6000,  wordList: 'hard',   wordsForLevel: 12 },
+    letters:{ spawnInterval: 2000, fallDuration: 9000, wordList: 'letters',wordsForLevel: 15 },
+  }[difficulty];
+  // Speed up per level
+  const lvl = state.level - 1;
+  base.spawnInterval = Math.max(600, base.spawnInterval - lvl * 100);
+  base.fallDuration  = Math.max(2500, base.fallDuration - lvl * 300);
+  return base;
+}
+
+// ─── Spawn Word ───────────────────────────────────────────────────────────────
+function spawnWord() {
+  if (!state.running) return;
+  const cfg = getDiffConfig();
+  const pool = WORDS[cfg.wordList];
+  
+  // 如果是字母模式或单词模式，都只取第一个字符作为目标
+  let text = pool[Math.floor(Math.random() * pool.length)];
+  if (difficulty !== 'letters') {
+    // 单词模式下只取首字母
+    text = text[0];
+  }
+  
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+  const el = document.createElement('div');
+  el.className = 'word';
+  el.textContent = text.toUpperCase();
+  el.style.color = color[0];
+  el.style.borderColor = color[0] + '66';
+  el.style.boxShadow = `0 0 15px ${color[0]}44`;
+  el.style.fontSize = '42px';
+
+  const gameW = window.innerWidth;
+  const x = 40 + Math.random() * (gameW - 150);
+  el.style.left = x + 'px';
+  el.style.top = '60px';
+
+  container.appendChild(el);
+
+  const wordObj = { el, text: text.toLowerCase(), x, matched: false, y: 60 };
+  state.words.push(wordObj);
+
+  // Animate fall
+  const startY = 60;
+  const keyboardTop = window.innerHeight - 280; // 键盘区域顶部
+  const startTime = performance.now();
+
+  function fall(now) {
+    if (!state.running || wordObj.matched) return;
+    const elapsed = now - startTime;
+    const progress = elapsed / cfg.fallDuration;
+    if (progress >= 1) {
+      wordMissed(wordObj);
+      return;
+    }
+    const y = startY + (keyboardTop - startY - 80) * progress;
+    wordObj.y = y;
+    el.style.top = y + 'px';
+    
+    // 更新提示键
+    updateHintKey();
+    
+    requestAnimationFrame(fall);
+  }
+  requestAnimationFrame(fall);
+}
+
+// 更新提示键 - 找到最底部的字母并高亮
+function updateHintKey() {
+  if (!state.running || state.words.length === 0) {
+    highlightHintKey(null);
+    return;
+  }
+  
+  // 找到y值最大（最底部）且未匹配的字母
+  let bottomWord = null;
+  let maxY = -1;
+  
+  for (const w of state.words) {
+    if (!w.matched && w.y > maxY) {
+      maxY = w.y;
+      bottomWord = w;
+    }
+  }
+  
+  if (bottomWord) {
+    highlightHintKey(bottomWord.text);
+  } else {
+    highlightHintKey(null);
+  }
+}
+
+function wordMissed(wordObj) {
+  if (wordObj.matched) return;
+  wordObj.matched = true;
+  state.wordsDropped++;
+  loseLife();
+  shakeWord(wordObj.el);
+  setTimeout(() => wordObj.el.remove(), 400);
+  state.words = state.words.filter(w => w !== wordObj);
+  state.combo = 0;
+  updateCombo();
+  updateHintKey();
+}
+
+function shakeWord(el) {
+  el.style.color = '#ff4466';
+  el.style.borderColor = '#ff4466';
+  el.style.animation = 'none';
+  let s = 0;
+  const shake = setInterval(() => {
+    el.style.transform = `translateX(${(s%2===0?-1:1)*6}px)`;
+    s++;
+    if (s > 6) { clearInterval(shake); el.style.transform = ''; }
+  }, 40);
+}
+
+// ─── Input Handling ───────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (!state.running) return;
+  if (e.key === 'Escape') return;
+
+  if (e.key.length !== 1) return;
+  const ch = e.key.toLowerCase();
+  if (!/[a-z]/.test(ch)) return;
+
+  flashKey(ch);
+  state.totalTyped++;
+  checkMatch(ch);
+});
+
+// 键盘点击支持
+document.querySelectorAll('.key').forEach(key => {
+  key.addEventListener('click', () => {
+    if (!state.running) return;
+    const ch = key.textContent.toLowerCase();
+    flashKey(ch);
+    state.totalTyped++;
+    checkMatch(ch);
+  });
+});
+
+function checkMatch(char) {
+  // 找到最底部的字母进行匹配
+  let targetWord = null;
+  let maxY = -1;
+  
+  for (const w of state.words) {
+    if (!w.matched && w.y > maxY && w.text === char) {
+      maxY = w.y;
+      targetWord = w;
+    }
+  }
+  
+  if (targetWord) {
+    wordCompleted(targetWord);
+  }
+}
+
+function wordCompleted(wordObj) {
+  wordObj.matched = true;
+  state.wordsCompleted++;
+  state.correctChars++;
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+  // Score
+  const baseScore = 50;
+  const comboBonus = Math.floor(state.combo / 5) * 10;
+  const levelBonus = state.level * 3;
+  const points = baseScore + comboBonus + levelBonus;
+  state.score += points;
+
+  // Particle
+  spawnParticle(wordObj.el, `+${points}`, '#00ffaa');
+
+  state.words = state.words.filter(w => w !== wordObj);
+  setTimeout(() => {
+    wordObj.el.style.transition = 'all 0.3s';
+    wordObj.el.style.transform = 'scale(1.5)';
+    wordObj.el.style.opacity = '0';
+    setTimeout(() => wordObj.el.remove(), 300);
+  }, 100);
+
+  updateCombo();
+  updateHUD();
+  checkLevelUp();
+  updateHintKey();
+}
+
+function spawnParticle(refEl, text, color) {
+  const rect = refEl.getBoundingClientRect();
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = text;
+  p.style.color = color;
+  p.style.left = (rect.left + rect.width/2) + 'px';
+  p.style.top = rect.top + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 800);
+}
+
+// ─── Lives ────────────────────────────────────────────────────────────────────
+function loseLife() {
+  state.lives--;
+  updateHearts();
+  if (state.lives <= 0) gameOver();
+}
+
+function updateHearts() {
+  for (let i = 1; i <= 3; i++) {
+    const h = document.getElementById(`h${i}`);
+    h.classList.toggle('lost', i > state.lives);
+  }
+}
+
+// ─── Level Up ─────────────────────────────────────────────────────────────────
+function checkLevelUp() {
+  state.levelProgress++;
+  const needed = state.wordsForLevel + (state.level - 1) * 2;
+  const pct = (state.levelProgress / needed) * 100;
+  levelFill.style.width = Math.min(pct, 100) + '%';
+
+  if (state.levelProgress >= needed) {
+    state.level++;
+    state.levelProgress = 0;
+    levelFill.style.width = '0%';
+    levelVal.textContent = state.level;
+    levelVal.style.color = '#ffaa00';
+    setTimeout(() => levelVal.style.color = '#a0c0ff', 600);
+    if (state.level % 3 === 0 && state.lives < 3) {
+      state.lives++;
+      updateHearts();
+      spawnParticle(document.getElementById('hud'), '+1 ♥', '#ff4466');
+    }
+    restartSpawner();
+  }
+}
+
+// ─── Combo Display ────────────────────────────────────────────────────────────
+let comboTimeout;
+function updateCombo() {
+  if (state.combo >= 3) {
+    comboDisplay.textContent = `${state.combo}x COMBO!`;
+    comboDisplay.style.opacity = '1';
+    clearTimeout(comboTimeout);
+    comboTimeout = setTimeout(() => comboDisplay.style.opacity = '0', 1500);
+  } else {
+    comboDisplay.style.opacity = '0';
+  }
+}
+
+// ─── HUD Update ───────────────────────────────────────────────────────────────
+function updateHUD() {
+  scoreVal.textContent = state.score;
+  levelVal.textContent = state.level;
+
+  const acc = state.totalTyped > 0
+    ? Math.round((state.correctChars / state.totalTyped) * 100)
+    : 100;
+  accVal.textContent = acc + '%';
+
+  const elapsed = (Date.now() - state.startTime) / 60000;
+  const wpm = elapsed > 0 ? Math.round(state.wordsCompleted / elapsed) : 0;
+  wpmVal.textContent = wpm;
+}
+
+setInterval(() => { if (state.running) updateHUD(); }, 1000);
+
+// ─── Spawner ──────────────────────────────────────────────────────────────────
+function restartSpawner() {
+  clearInterval(state.spawnTimer);
+  const cfg = getDiffConfig();
+  spawnWord();
+  state.spawnTimer = setInterval(spawnWord, cfg.spawnInterval);
+}
+
+// ─── Game Flow ────────────────────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+
+  Object.assign(state, {
+    running: true, score: 0, lives: 3, level: 1, combo: 0, maxCombo: 0,
+    words: [], totalTyped: 0, correctChars: 0,
+    wordsCompleted: 0, wordsDropped: 0, startTime: Date.now(),
+    levelProgress: 0, wordsForLevel: 10, difficulty
+  });
+
+  container.innerHTML = '';
+  updateHearts();
+  updateHUD();
+  levelFill.style.width = '0%';
+  highlightHintKey(null);
+  restartSpawner();
+  startMusic();
+}
+
+function gameOver() {
+  state.running = false;
+  clearInterval(state.spawnTimer);
+  stopMusic();
+
+  state.words.forEach(w => w.el.remove());
+  state.words = [];
+  highlightHintKey(null);
+
+  const elapsed = (Date.now() - state.startTime) / 60000;
+  const wpm = elapsed > 0 ? Math.round(state.wordsCompleted / elapsed) : 0;
+  const acc = state.totalTyped > 0
+    ? Math.round((state.correctChars / state.totalTyped) * 100) : 100;
+
+  document.getElementById('final-score').textContent = state.score;
+  document.getElementById('final-stats').innerHTML =
+    `关卡达到: ${state.level} &nbsp;|&nbsp; WPM: ${wpm} &nbsp;|&nbsp; 准确率: ${acc}%<br>` +
+    `完成字母: ${state.wordsCompleted} &nbsp;|&nbsp; 最高连击: ${state.maxCombo}x`;
+
+  document.getElementById('gameover-screen').style.display = 'flex';
+}
+
+// ─── UI Events ────────────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    difficulty = btn.dataset.d;
+  });
+});
+
+// ─── Background Music (Web Audio API) ────────────────────────────────────────
+let audioCtx = null;
+let musicNodes = [];
+let musicOn = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function startMusic() {
+  if (!audioCtx) initAudio();
+  if (musicOn) return;
+  musicOn = true;
+  document.getElementById('music-btn').classList.add('on');
+
+  const master = audioCtx.createGain();
+  master.gain.setValueAtTime(0.18, audioCtx.currentTime);
+  master.connect(audioCtx.destination);
+  musicNodes.push(master);
+
+  const convolver = audioCtx.createConvolver();
+  const irLen = audioCtx.sampleRate * 2;
+  const irBuf = audioCtx.createBuffer(2, irLen, audioCtx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = irBuf.getChannelData(c);
+    for (let i = 0; i < irLen; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/irLen, 2);
+  }
+  convolver.buffer = irBuf;
+  convolver.connect(master);
+  musicNodes.push(convolver);
+
+  const dryGain = audioCtx.createGain();
+  dryGain.gain.value = 0.5;
+  dryGain.connect(master);
+  const wetGain = audioCtx.createGain();
+  wetGain.gain.value = 0.5;
+  wetGain.connect(convolver);
+
+  const chords = [
+    [261.63, 329.63, 392.00, 493.88],
+    [220.00, 261.63, 329.63, 440.00],
+    [174.61, 220.00, 261.63, 349.23],
+    [196.00, 246.94, 293.66, 392.00],
+  ];
+
+  function playPad(chordIdx) {
+    if (!musicOn) return;
+    const freqs = chords[chordIdx % chords.length];
+    freqs.forEach(freq => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq / 2;
+      g.gain.setValueAtTime(0, audioCtx.currentTime);
+      g.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.8);
+      g.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 3.0);
+      g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4.2);
+      osc.connect(g);
+      g.connect(dryGain);
+      g.connect(wetGain);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 4.5);
+      musicNodes.push(osc, g);
+    });
+    setTimeout(() => playPad(chordIdx + 1), 4000);
+  }
+  playPad(0);
+
+  const arpNotes = [523.25, 659.25, 783.99, 880.00, 783.99, 659.25, 523.25, 440.00];
+  let arpIdx = 0;
+  function playArp() {
+    if (!musicOn) return;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = arpNotes[arpIdx % arpNotes.length];
+    g.gain.setValueAtTime(0.07, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
+    osc.connect(g);
+    g.connect(dryGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+    musicNodes.push(osc, g);
+    arpIdx++;
+    setTimeout(playArp, 280);
+  }
+  playArp();
+
+  function playKick() {
+    if (!musicOn) return;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.connect(g);
+    g.connect(master);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.35);
+    musicNodes.push(osc, g);
+    setTimeout(playKick, 500);
+  }
+  playKick();
+
+  function playHat() {
+    if (!musicOn) return;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 8000;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(master);
+    src.start();
+    musicNodes.push(src, filter, g);
+    setTimeout(playHat, 250);
+  }
+  playHat();
+}
+
+function stopMusic() {
+  musicOn = false;
+  document.getElementById('music-btn').classList.remove('on');
+  musicNodes.forEach(n => { try { n.disconnect(); } catch(e){} });
+  musicNodes = [];
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+}
+
+document.getElementById('music-btn').addEventListener('click', () => {
+  if (musicOn) stopMusic();
+  else startMusic();
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+buildKeyboard();
+</script>
+</body>
+</html>
