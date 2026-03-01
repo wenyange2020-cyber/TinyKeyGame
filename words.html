@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单词练习</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: linear-gradient(180deg, #0a0a1a 0%, #1a1a2e 100%);
+    color: #e0e0ff;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* 导航栏 */
+  #nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: rgba(10,10,30,0.9);
+    border-bottom: 1px solid #2a2a5a;
+    z-index: 100;
+  }
+  #nav h1 {
+    font-size: 18px;
+    color: #a0c0ff;
+    letter-spacing: 2px;
+  }
+  #nav .stats {
+    display: flex;
+    gap: 30px;
+    font-size: 14px;
+  }
+  #nav .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #nav .label { color: #6060aa; font-size: 11px; text-transform: uppercase; }
+  #nav .value { color: #00ffaa; font-size: 16px; font-weight: bold; }
+
+  /* 模式切换 */
+  #mode-switch {
+    display: flex;
+    gap: 10px;
+  }
+  .mode-btn {
+    background: rgba(30,30,60,0.8);
+    border: 1px solid #3a3a6a;
+    color: #8080aa;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { border-color: #6060aa; color: #a0a0dd; }
+  .mode-btn.active {
+    background: linear-gradient(180deg, #2a2a6a 0%, #1a1a4a 100%);
+    border-color: #00ffaa;
+    color: #00ffaa;
+    box-shadow: 0 0 15px rgba(0,255,170,0.3);
+  }
+
+  /* 主内容区 */
+  #main {
+    margin-top: 70px;
+    height: calc(100vh - 70px);
+    display: flex;
+  }
+
+  /* 左侧：单词列表 */
+  #word-list {
+    width: 300px;
+    background: rgba(10,10,30,0.5);
+    border-right: 1px solid #2a2a5a;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  #word-list h2 {
+    font-size: 14px;
+    color: #6060aa;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .word-item {
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    background: rgba(30,30,60,0.5);
+    border: 1px solid #2a2a5a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .word-item:hover {
+    border-color: #4a4a8a;
+    background: rgba(40,40,80,0.6);
+  }
+  .word-item.practiced {
+    border-color: #00ffaa;
+    color: #00ffaa;
+  }
+  .word-item.practiced::after {
+    content: '✓';
+    font-size: 12px;
+  }
+
+  /* 右侧：练习区 */
+  #practice-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+  }
+
+  /* 练习模式 */
+  #practice-mode {
+    display: none;
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+  }
+  #practice-mode.active { display: block; }
+
+  #target-word {
+    font-size: 72px;
+    font-weight: bold;
+    color: #a0c0ff;
+    text-shadow: 0 0 30px rgba(160,192,255,0.5);
+    margin-bottom: 40px;
+    letter-spacing: 8px;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #input-display {
+    font-size: 48px;
+    font-weight: bold;
+    color: #00ffaa;
+    letter-spacing: 8px;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 30px;
+  }
+  #input-display.error { color: #ff4466; }
+
+  #progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(30,30,60,0.8);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 30px;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ffaa, #00cc88);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .practice-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .control-btn {
+    background: linear-gradient(180deg, #2a2a6a 0%, #1a1a4a 100%);
+    border: 1px solid #4a4a9a;
+    color: #a0a0dd;
+    padding: 12px 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .control-btn:hover {
+    border-color: #00ffaa;
+    color: #00ffaa;
+    box-shadow: 0 0 20px rgba(0,255,170,0.3);
+  }
+
+  /* 浏览模式 */
+  #browse-mode {
+    display: none;
+    width: 100%;
+    max-width: 800px;
+  }
+  #browse-mode.active { display: block; }
+
+  #browse-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    padding: 10px;
+  }
+  .browse-item {
+    padding: 15px;
+    background: rgba(30,30,60,0.5);
+    border: 1px solid #2a2a5a;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .browse-item:hover {
+    border-color: #00ffaa;
+    background: rgba(40,40,80,0.6);
+    transform: translateY(-2px);
+  }
+  .browse-item .letter-tag {
+    font-size: 11px;
+    color: #6060aa;
+    margin-top: 5px;
+  }
+
+  /* 提示信息 */
+  #hint {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #6060aa;
+    font-size: 13px;
+    background: rgba(10,10,30,0.9);
+    padding: 10px 25px;
+    border-radius: 20px;
+    border: 1px solid #2a2a5a;
+  }
+
+  /* 滚动条样式 */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(10,10,30,0.5); }
+  ::-webkit-scrollbar-thumb { background: #3a3a6a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4a4a8a; }
+
+  /* 语音控制 */
+  #voice-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 15px;
+    background: rgba(30,30,60,0.5);
+    border-radius: 8px;
+    border: 1px solid #2a2a5a;
+  }
+  .voice-btn {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: all 0.2s;
+    padding: 5px;
+  }
+  .voice-btn.active {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px #00ffaa);
+  }
+  .voice-btn:hover {
+    transform: scale(1.1);
+  }
+  .volume-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #volume-slider {
+    width: 80px;
+    height: 4px;
+    -webkit-appearance: none;
+    background: #2a2a5a;
+    border-radius: 2px;
+    outline: none;
+  }
+  #volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00ffaa;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,255,170,0.5);
+  }
+  #volume-label {
+    font-size: 11px;
+    color: #6060aa;
+    min-width: 35px;
+  }
+
+  /* 成功动画 */
+  @keyframes success {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .success-anim { animation: success 0.3s ease; }
+</style>
+</head>
+<body>
+
+<div id="nav">
+  <h1>📚 单词练习</h1>
+  <div id="mode-switch">
+    <button class="mode-btn active" data-mode="practice">练习模式</button>
+    <button class="mode-btn" data-mode="browse">浏览模式</button>
+  </div>
+  
+  <!-- 语音控制 -->
+  <div id="voice-controls">
+    <button id="voice-toggle" class="voice-btn active" title="开关语音">
+      🔊
+    </button>
+    <div class="volume-slider-container">
+      <input type="range" id="volume-slider" min="0" max="100" value="80">
+      <span id="volume-label">80%</span>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <div class="stat">
+      <span class="label">单词总数</span>
+      <span class="value" id="total-count">0</span>
+    </div>
+    <div class="stat">
+      <span class="label">已练习</span>
+      <span class="value" id="practiced-count">0</span>
+    </div>
+    <div class="stat">
+      <span class="label">正确率</span>
+      <span class="value" id="accuracy">0%</span>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="word-list">
+    <h2>单词列表</h2>
+    <div id="word-items"></div>
+  </div>
+
+  <div id="practice-area">
+    <!-- 练习模式 -->
+    <div id="practice-mode" class="active">
+      <div id="target-word">按空格开始</div>
+      <div id="input-display"></div>
+      <div id="progress-bar">
+        <div id="progress-fill"></div>
+      </div>
+      <div class="practice-controls">
+        <button class="control-btn" id="next-btn">下一个 (→)</button>
+        <button class="control-btn" id="shuffle-btn">随机 (R)</button>
+        <button class="control-btn" id="reset-btn">重置</button>
+      </div>
+    </div>
+
+    <!-- 浏览模式 -->
+    <div id="browse-mode">
+      <div id="browse-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div id="hint">按空格开始练习 | 按 → 下一个单词 | 按 R 随机排序</div>
+
+<script>
+// 单词数据
+const wordData = `A
+able
+aboard
+above
+abroad
+absence
+absent
+absolutely
+academic
+accent
+accept
+account
+ache
+achievement
+across
+act
+active
+actor
+actress
+adapt
+add
+addict
+address
+admit
+advantage
+adventure
+advertise
+advice
+advise
+adviser
+affair
+affect
+afford
+afraid
+be
+Africa
+after
+again
+once
+against
+at
+agent
+agricultural
+agriculture
+ahead
+airport
+alive
+allow
+almost
+alone
+along
+aloud
+although
+altogether
+always
+amazed
+amazing
+amusing
+ancient
+anger
+angry
+animal
+ankle
+announce
+announcement
+anxious
+anybody
+anyhow
+anything
+anywhere
+apartment
+apologize
+apology
+appear
+applause
+apply
+appreciate
+approach
+argue
+argument
+arrange
+arrest
+arrive
+arrival
+arrow
+artist
+ash
+ashamed
+asleep
+aspect
+assistant
+astonished
+astronaut
+astronomer
+athlete
+atmosphere
+attack
+attempt
+attend
+attitude
+attractive
+audience
+autumn
+available
+average
+avoid
+awake
+away
+be
+go
+awful
+B
+background
+bamboo
+ban
+barber
+bark
+base
+baseball
+basin
+basket
+bat
+battery
+battle
+beach
+beard
+beast
+beat
+beg
+behave
+belief
+believe
+belong
+belong
+below
+bench
+bend
+bent
+blame
+blank
+bleed
+blind
+blood
+boil
+boot
+bored
+border
+borrow
+bother
+bottle
+bottom
+bowl
+brain
+branch
+brand
+brave
+break
+brick
+bridge
+brief
+bright
+brilliant
+bring
+broad
+broadcast
+broom
+burn
+bury
+bush
+button
+C
+cabbage
+cage
+calendar
+camel
+camp
+cancer
+candle
+cap
+capital
+captain
+career
+careful
+careless
+carpet
+carry
+cartoon
+cassette
+catch
+catch
+cause
+cave
+cent
+ centre
+century
+ceremony
+certain
+certainly
+champion
+chance
+change
+change
+channel
+character
+charge
+chart
+cheap
+cheer
+cheerful
+chef
+chemical
+chemistry
+chief
+choice
+choose
+church
+cigarette
+cinema
+circle
+circus
+citizen
+civil
+civilization
+claim
+clever
+climb
+clinic
+colorful
+column
+comedy
+comfortable
+committee
+common
+communicate
+communication
+companion
+company
+compare
+competition
+complain
+complete
+completely
+complex
+composition
+comprehension
+concentrate
+concerned
+concert
+conclusion
+condition
+conductor
+confident
+confuse
+confusing
+confusion
+congratulation
+connect
+connection
+consider
+construction
+contain
+content
+continent
+continue
+contract
+contribution
+control
+convenient
+conversation
+corn
+corner
+correct
+correction
+cotton
+cough
+count
+country
+countryside
+courage
+course
+court
+crash
+cream
+create
+creature
+crime
+criminal
+crop
+cross
+crowd
+crowded
+cupboard
+curious
+current
+custom
+cut
+D
+dam
+damage
+damp
+data
+dead
+deal
+dealer
+declare
+decorate
+deed
+defeat
+defend
+defence
+degree
+delightful
+deliver
+demand
+department
+depend
+describe
+description
+design
+designer
+destroy
+destruction
+detective
+determined
+develop
+development
+dialogue
+diamond
+diary
+dictation
+dictionary
+diet
+differ
+difference
+different
+difficult
+difficulty
+dig
+digital
+direct
+direction
+director
+dirty
+disability
+disable
+disadvantage
+disagree
+disappear
+disappointed
+disappointing
+disaster
+discover
+discuss
+discussion
+dish
+dislike
+display
+distance
+distant
+district
+disturb
+dive
+divide
+do
+doctor
+document
+downtown
+dozen
+dust
+dustbin
+duty
+E
+eager
+earn
+economy
+edge
+electrical
+electricity
+embarrassed
+embarrassing
+emperor
+employ
+employment
+encourage
+enemy
+energetic
+energy
+engineer
+enjoy
+enjoy
+enjoyment
+entertainment
+enthusiastic
+entrance
+envelope
+equal
+equipment
+eruption
+especially
+escape
+essay
+establish
+even
+evidence
+exact
+exactly
+examination
+examine
+except
+exception
+exchange
+excite
+excuse
+exercise
+exhausted
+exhibition
+exist
+exit
+expect
+expensive
+experience
+expert
+explain
+explode
+export
+expression
+extra
+F
+familiar
+fantastic
+fare
+favour
+favourite
+fax
+feather
+feed
+feed
+female
+fence
+festival
+fetch
+fever
+field
+fierce
+figure
+film
+financial
+final
+finish
+fire
+first
+flashlight
+flat
+flight
+float
+flood
+floor
+flow
+focus
+foggy
+be
+forbid
+force
+forecast
+forehead
+form
+fortunate
+fortunately
+freeway
+freeze
+frequently
+fresh
+frightening
+fuel
+furniture
+further
+G
+gain
+garbage
+garlic
+gather
+general
+generous
+gesture
+goods
+government
+grain
+greet
+ground
+ground
+guide
+guilty
+gym
+gymnastic
+H
+handkerchief
+handle
+handwriting
+hang
+harbour
+hardly
+harm
+harmful
+harvest
+headline
+headmaster
+headteacher
+heaven
+helicopter
+highway
+hill
+hilly
+hole
+honour
+horrible
+host
+hurricane
+I
+ill
+illegal
+illness
+imagine
+immediately
+import
+impress
+impression
+impressive
+improve
+inch
+incorrect
+income
+incorrectly
+increase
+indicate
+industry
+influence
+influential
+injure
+injury
+insect
+instruction
+insurance
+intelligent
+interviewer
+introduce
+invent
+invention
+inventor
+invitation
+invite
+J
+jar
+jazz
+jewelry
+jogging
+journey
+judge
+judgement
+justice
+K
+kick
+kindergarten
+L
+lab
+lawyer
+lay
+lead
+lead
+leader
+leaf
+leather
+lecture
+lecturer
+limit
+line
+liquid
+list
+lively
+load
+local
+lock
+M
+manage
+manager
+mankind
+manner
+march
+mask
+master
+masterpiece
+match
+matter
+meanwhile
+measure
+medical
+memory
+mend
+mention
+menu
+merry
+metal
+method
+minus
+misunderstanding
+mix
+mixture
+modern
+murderer
+museum
+N
+nut
+O
+officer
+official
+operation
+origin
+P
+particular
+permission
+take
+physical
+physics
+pioneer
+pipe
+platform
+port
+postcode
+pot
+pour
+press
+pretend
+private
+produce
+production
+profit
+promise
+provide
+province
+pure
+puzzle
+Q
+quality
+quantity
+quarrel
+queue
+quiz
+R
+reasonable
+receipt
+record
+keep
+recover
+regret
+regular
+religion
+rely
+report
+require
+resource
+rice
+rich
+riddle
+rock
+row
+route
+ruler
+S
+sad
+sadly
+safe
+safety
+sailor
+salary
+sandstorm
+satellite
+satisfy
+scene
+screen
+secretary
+servant
+shade
+shallow
+shelter
+shoot
+shore
+shorten
+show
+on
+shower
+shut
+sightseeing
+sign
+signal
+silence
+silk
+similar
+simple
+simplify
+site
+situation
+skate
+sky
+slave
+slightly
+software
+spit
+spoon
+sport
+spot
+stadium
+stage
+standard
+stare
+starve
+state
+steal
+steam
+stomach
+stomachache
+straight
+strange
+stranger
+suggest
+summary
+sunset
+supply
+surf
+surround
+survey
+survive
+sweater
+sweep
+symbol
+system
+T
+tailor
+tale
+technology
+teenager
+temple
+tennis
+tense
+tent
+terrible
+terrified
+theory
+thick
+throat
+tight
+tobacco
+tomb
+tongue
+tough
+track
+trade
+traditional
+treatment
+U
+unite
+urban
+urgent
+V
+valley
+valuable
+value
+view
+volunteer
+voyage
+W
+warn
+wave
+wealth
+weapon
+wheat
+wheel
+whistle
+wild
+wildlife
+wing
+wire
+wise
+within
+Y
+youth`;
+
+// 解析单词（过滤掉单个字母的标题）
+const allWords = wordData.split('\n').map(w => w.trim()).filter(w => w && w.length > 1);
+const letterGroups = {};
+let currentLetter = '';
+
+wordData.split('\n').forEach(w => {
+  w = w.trim();
+  if (!w) return;
+  if (w.length === 1) {
+    currentLetter = w;
+    letterGroups[currentLetter] = [];
+  } else if (currentLetter) {
+    letterGroups[currentLetter].push(w);
+  }
+});
+
+// 状态管理
+let currentMode = 'practice';
+let currentWordIndex = 0;
+let currentInput = '';
+let practicedWords = new Set();
+let correctCount = 0;
+let totalAttempts = 0;
+let isPaused = true;
+
+// 语音设置
+let voiceEnabled = true;
+let voiceVolume = 0.8;
+let speechSynth = window.speechSynthesis;
+let voices = [];
+let voiceInitialized = false;
+
+// 初始化语音引擎
+function initVoice() {
+  if (voiceInitialized) return;
+  
+  if (!speechSynth) {
+    console.warn('浏览器不支持语音合成');
+    return;
+  }
+  
+  // 获取可用语音
+  voices = speechSynth.getVoices();
+  
+  // 某些浏览器需要异步加载语音列表
+  if (voices.length === 0) {
+    speechSynth.onvoiceschanged = () => {
+      voices = speechSynth.getVoices();
+    };
+  }
+  
+  voiceInitialized = true;
+}
+
+// 播放单词读音
+function speakWord(word) {
+  if (!voiceEnabled || !speechSynth) return;
+  
+  // 确保语音已初始化
+  initVoice();
+  
+  // 取消之前的朗读
+  speechSynth.cancel();
+  
+  const utterance = new SpeechSynthesisUtterance(word);
+  utterance.lang = 'en-US';
+  utterance.volume = voiceVolume;
+  utterance.rate = 0.9;
+  utterance.pitch = 1;
+  
+  // 尝试使用英语语音
+  const enVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
+  if (enVoice) {
+    utterance.voice = enVoice;
+  }
+  
+  // 确保在用户交互后播放
+  setTimeout(() => {
+    speechSynth.speak(utterance);
+  }, 50);
+}
+
+// DOM 元素
+const targetWordEl = document.getElementById('target-word');
+const inputDisplayEl = document.getElementById('input-display');
+const progressFillEl = document.getElementById('progress-fill');
+const wordItemsEl = document.getElementById('word-items');
+const browseGridEl = document.getElementById('browse-grid');
+const totalCountEl = document.getElementById('total-count');
+const practicedCountEl = document.getElementById('practiced-count');
+const accuracyEl = document.getElementById('accuracy');
+
+// 初始化
+function init() {
+  totalCountEl.textContent = allWords.length;
+  renderWordList();
+  renderBrowseGrid();
+  updateStats();
+}
+
+// 渲染单词列表
+function renderWordList() {
+  wordItemsEl.innerHTML = '';
+  Object.entries(letterGroups).forEach(([letter, words]) => {
+    const groupEl = document.createElement('div');
+    groupEl.innerHTML = `<div style="color:#4a4a8a;font-size:12px;margin:15px 0 8px 0;font-weight:bold;">${letter}</div>`;
+    wordItemsEl.appendChild(groupEl);
+    
+    words.forEach(word => {
+      const item = document.createElement('div');
+      item.className = 'word-item' + (practicedWords.has(word) ? ' practiced' : '');
+      item.textContent = word;
+      item.onclick = () => startWord(word);
+      wordItemsEl.appendChild(item);
+    });
+  });
+}
+
+// 渲染浏览网格
+function renderBrowseGrid() {
+  browseGridEl.innerHTML = '';
+  Object.entries(letterGroups).forEach(([letter, words]) => {
+    words.forEach(word => {
+      const item = document.createElement('div');
+      item.className = 'browse-item';
+      item.innerHTML = `${word}<div class="letter-tag">${letter}</div>`;
+      item.onclick = () => {
+        switchMode('practice');
+        startWord(word);
+      };
+      browseGridEl.appendChild(item);
+    });
+  });
+}
+
+// 开始练习某个单词
+function startWord(word) {
+  currentWordIndex = allWords.indexOf(word);
+  if (currentWordIndex === -1) currentWordIndex = 0;
+  isPaused = false;
+  resetCurrentWord();
+}
+
+// 重置当前单词状态
+function resetCurrentWord() {
+  currentInput = '';
+  const word = allWords[currentWordIndex];
+  targetWordEl.textContent = word;
+  inputDisplayEl.textContent = '';
+  inputDisplayEl.classList.remove('error');
+  updateProgress();
+}
+
+// 更新进度条
+function updateProgress() {
+  const word = allWords[currentWordIndex];
+  const progress = word ? (currentInput.length / word.length) * 100 : 0;
+  progressFillEl.style.width = progress + '%';
+}
+
+// 更新统计
+function updateStats() {
+  practicedCountEl.textContent = practicedWords.size;
+  const accuracy = totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0;
+  accuracyEl.textContent = accuracy + '%';
+}
+
+// 切换到下一个单词
+function nextWord() {
+  currentWordIndex = (currentWordIndex + 1) % allWords.length;
+  resetCurrentWord();
+}
+
+// 随机打乱
+function shuffleWords() {
+  for (let i = allWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+  }
+  currentWordIndex = 0;
+  resetCurrentWord();
+}
+
+// 切换模式
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  document.getElementById('practice-mode').classList.toggle('active', mode === 'practice');
+  document.getElementById('browse-mode').classList.toggle('active', mode === 'browse');
+  document.getElementById('hint').style.display = mode === 'practice' ? 'block' : 'none';
+}
+
+// 处理键盘输入
+document.addEventListener('keydown', (e) => {
+  if (currentMode !== 'practice') return;
+  
+  // 初始化语音引擎（需要用户交互）
+  initVoice();
+  
+  // 空格开始
+  if (e.code === 'Space' && isPaused) {
+    e.preventDefault();
+    isPaused = false;
+    if (!targetWordEl.textContent || targetWordEl.textContent === '按空格开始') {
+      resetCurrentWord();
+    }
+    return;
+  }
+  
+  if (isPaused) return;
+  
+  // 下一个单词
+  if (e.key === 'ArrowRight') {
+    nextWord();
+    return;
+  }
+  
+  // 随机
+  if (e.key.toLowerCase() === 'r') {
+    shuffleWords();
+    return;
+  }
+  
+  const word = allWords[currentWordIndex];
+  
+  // 退格
+  if (e.key === 'Backspace') {
+    currentInput = currentInput.slice(0, -1);
+    inputDisplayEl.textContent = currentInput;
+    inputDisplayEl.classList.remove('error');
+    updateProgress();
+    return;
+  }
+  
+  // 忽略控制键
+  if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+  
+  const expected = word[currentInput.length];
+  currentInput += e.key;
+  inputDisplayEl.textContent = currentInput;
+  
+  totalAttempts++;
+  
+  if (e.key.toLowerCase() === expected.toLowerCase()) {
+    inputDisplayEl.classList.remove('error');
+    correctCount++;
+    
+    // 完成单词
+    if (currentInput.length === word.length) {
+      practicedWords.add(word);
+      renderWordList();
+      updateStats();
+      
+      // 播放单词读音
+      speakWord(word);
+      
+      targetWordEl.classList.add('success-anim');
+      setTimeout(() => {
+        targetWordEl.classList.remove('success-anim');
+        nextWord();
+      }, 300);
+    }
+  } else {
+    inputDisplayEl.classList.add('error');
+    setTimeout(() => {
+      currentInput = currentInput.slice(0, -1);
+      inputDisplayEl.textContent = currentInput;
+      inputDisplayEl.classList.remove('error');
+    }, 200);
+  }
+  
+  updateProgress();
+  updateStats();
+});
+
+// 按钮事件
+document.getElementById('next-btn').addEventListener('click', nextWord);
+document.getElementById('shuffle-btn').addEventListener('click', shuffleWords);
+document.getElementById('reset-btn').addEventListener('click', () => {
+  practicedWords.clear();
+  correctCount = 0;
+  totalAttempts = 0;
+  currentWordIndex = 0;
+  isPaused = true;
+  targetWordEl.textContent = '按空格开始';
+  inputDisplayEl.textContent = '';
+  progressFillEl.style.width = '0%';
+  renderWordList();
+  updateStats();
+});
+
+// 模式切换按钮
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+});
+
+// 语音控制事件
+const voiceToggleBtn = document.getElementById('voice-toggle');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeLabel = document.getElementById('volume-label');
+
+voiceToggleBtn.addEventListener('click', () => {
+  voiceEnabled = !voiceEnabled;
+  voiceToggleBtn.classList.toggle('active', voiceEnabled);
+  voiceToggleBtn.textContent = voiceEnabled ? '🔊' : '🔇';
+});
+
+volumeSlider.addEventListener('input', (e) => {
+  voiceVolume = e.target.value / 100;
+  volumeLabel.textContent = e.target.value + '%';
+});
+
+// 页面加载时预初始化语音
+document.addEventListener('click', function initVoiceOnFirstClick() {
+  initVoice();
+  document.removeEventListener('click', initVoiceOnFirstClick);
+}, { once: true });
+
+// 尝试立即加载语音（某些浏览器支持）
+if (speechSynth && speechSynth.onvoiceschanged !== undefined) {
+  speechSynth.onvoiceschanged = () => {
+    voices = speechSynth.getVoices();
+  };
+}
+
+// 启动
+init();
+</script>
+
+</body>
+</html>
